@@ -16,11 +16,21 @@ import {
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle 
+  DialogTitle,
+  DialogTrigger
 } from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select';
 import { toast } from "sonner";
 import { query } from '@/lib/db';
 import { useAuth } from '@/contexts/AuthContext';
+import { Check, Plus, RotateCcw, Search, Trash2, X } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 interface Device {
   id: number;
@@ -40,6 +50,8 @@ const DevicesPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
+  const [addKeyDialog, setAddKeyDialog] = useState(false);
+  const [newKeyDuration, setNewKeyDuration] = useState('30'); // default 30 days
   const { user } = useAuth();
 
   useEffect(() => {
@@ -96,9 +108,84 @@ const DevicesPage = () => {
     }
   };
 
+  const handleDeleteDevice = async (device: Device) => {
+    try {
+      await query('DELETE FROM devices WHERE id = ?', [device.id]);
+      
+      // Log the action
+      await query(
+        'INSERT INTO logs (mac, hostname, action, performed_by, timestamp) VALUES (?, ?, ?, ?, NOW())',
+        [
+          device.mac,
+          device.hostname,
+          'Xóa thiết bị',
+          user?.username || 'unknown'
+        ]
+      );
+      
+      // Update local state
+      setDevices(devices.filter(d => d.id !== device.id));
+      
+      toast.success('Đã xóa thiết bị thành công');
+      setOpenDialog(false);
+    } catch (error) {
+      console.error('Error deleting device:', error);
+      toast.error('Không thể xóa thiết bị');
+    }
+  };
+
   const handleViewDetails = (device: Device) => {
     setSelectedDevice(device);
     setOpenDialog(true);
+  };
+
+  const handleAddKey = async (device: Device) => {
+    try {
+      // Calculate expiration date based on selected duration
+      let expiresAt = null;
+      
+      if (newKeyDuration !== 'forever') {
+        const days = parseInt(newKeyDuration);
+        const date = new Date();
+        date.setDate(date.getDate() + days);
+        expiresAt = date.toISOString().split('T')[0];
+      }
+      
+      // Update device with new key
+      await query(
+        'UPDATE devices SET active = 1, activated_at = NOW(), expires_at = ? WHERE id = ?',
+        [expiresAt, device.id]
+      );
+      
+      // Log the action
+      await query(
+        'INSERT INTO logs (mac, hostname, action, performed_by, timestamp) VALUES (?, ?, ?, ?, NOW())',
+        [
+          device.mac,
+          device.hostname,
+          `Cấp key ${expiresAt ? 'hết hạn ' + expiresAt : 'vĩnh viễn'}`,
+          user?.username || 'unknown'
+        ]
+      );
+      
+      // Update local state
+      setDevices(devices.map(d => 
+        d.id === device.id 
+          ? { 
+              ...d, 
+              active: 1, 
+              activated_at: new Date().toISOString(), 
+              expires_at: expiresAt 
+            } 
+          : d
+      ));
+      
+      toast.success('Đã cấp key thành công');
+      setAddKeyDialog(false);
+    } catch (error) {
+      console.error('Error adding key:', error);
+      toast.error('Không thể cấp key');
+    }
   };
 
   const formatDate = (dateString: string | null) => {
@@ -116,7 +203,8 @@ const DevicesPage = () => {
       </div>
       
       <div className="flex items-center justify-between">
-        <div className="max-w-sm">
+        <div className="flex gap-2 items-center">
+          <Search className="text-muted-foreground h-5 w-5" />
           <Input
             placeholder="Tìm kiếm theo tên máy, MAC, key..."
             value={searchTerm}
@@ -125,6 +213,7 @@ const DevicesPage = () => {
           />
         </div>
         <Button onClick={() => fetchDevices()}>
+          <RotateCcw className="mr-1 h-4 w-4" />
           Làm mới
         </Button>
       </div>
@@ -142,9 +231,8 @@ const DevicesPage = () => {
                 <TableHead>Tên máy</TableHead>
                 <TableHead>Key</TableHead>
                 <TableHead>Trạng thái</TableHead>
-                <TableHead>Ngày tạo</TableHead>
-                <TableHead>Người tạo</TableHead>
-                <TableHead></TableHead>
+                <TableHead>Hết hạn</TableHead>
+                <TableHead>Thao tác</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -153,29 +241,51 @@ const DevicesPage = () => {
                   <TableRow key={device.id}>
                     <TableCell className="font-mono">{device.mac}</TableCell>
                     <TableCell>{device.hostname}</TableCell>
-                    <TableCell className="font-mono">{device.key_code.substring(0, 8)}...</TableCell>
+                    <TableCell className="font-mono">{device.key_code.substring(0, 10)}...</TableCell>
                     <TableCell>
-                      <span className={`inline-block px-2 py-1 rounded-full text-xs ${device.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                        {device.active ? 'Đã kích hoạt' : 'Chưa kích hoạt'}
-                      </span>
+                      <Badge variant={device.active ? "success" : "destructive"} className="flex items-center w-fit gap-1">
+                        {device.active ? (
+                          <>
+                            <Check className="h-3 w-3" /> Đã kích hoạt
+                          </>
+                        ) : (
+                          <>
+                            <X className="h-3 w-3" /> Chưa kích hoạt
+                          </>
+                        )}
+                      </Badge>
                     </TableCell>
-                    <TableCell>{formatDate(device.created_at)}</TableCell>
-                    <TableCell>{device.added_by}</TableCell>
                     <TableCell>
-                      <div className="flex items-center justify-end space-x-2">
+                      {device.expires_at ? formatDate(device.expires_at) : 'Vĩnh viễn'}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
                         <Button 
                           variant="outline" 
                           size="sm"
-                          onClick={() => handleViewDetails(device)}
+                          onClick={() => {
+                            setSelectedDevice(device);
+                            setAddKeyDialog(true);
+                          }}
                         >
-                          Chi tiết
+                          <Plus className="h-3.5 w-3.5 mr-1" />
+                          Cấp key
                         </Button>
-                        <Button 
+                        <Button
                           variant={device.active ? "destructive" : "default"}
                           size="sm"
                           onClick={() => toggleDeviceStatus(device)}
                         >
-                          {device.active ? 'Hủy kích hoạt' : 'Kích hoạt'}
+                          <RotateCcw className="h-3.5 w-3.5 mr-1" />
+                          Reset
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-red-500 hover:text-red-700"
+                          onClick={() => handleViewDetails(device)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>
                     </TableCell>
@@ -183,7 +293,7 @@ const DevicesPage = () => {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-4 text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center py-4 text-muted-foreground">
                     Không tìm thấy thiết bị nào
                   </TableCell>
                 </TableRow>
@@ -193,16 +303,18 @@ const DevicesPage = () => {
         </div>
       )}
       
+      {/* Device Delete Confirmation Dialog */}
       <Dialog open={openDialog} onOpenChange={setOpenDialog}>
-        {selectedDevice && (
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Chi tiết thiết bị</DialogTitle>
-              <DialogDescription>
-                Thông tin chi tiết về thiết bị
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Xóa thiết bị</DialogTitle>
+            <DialogDescription>
+              Bạn có chắc chắn muốn xóa thiết bị này? Hành động này không thể hoàn tác.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedDevice && (
+            <div className="space-y-4 py-2">
               <div className="grid grid-cols-3 gap-2">
                 <div className="text-sm font-medium">MAC:</div>
                 <div className="col-span-2 font-mono">{selectedDevice.mac}</div>
@@ -211,51 +323,80 @@ const DevicesPage = () => {
                 <div className="text-sm font-medium">Tên máy:</div>
                 <div className="col-span-2">{selectedDevice.hostname}</div>
               </div>
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpenDialog(false)}>
+              Hủy
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={() => selectedDevice && handleDeleteDevice(selectedDevice)}
+            >
+              Xác nhận xóa
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Add Key Dialog */}
+      <Dialog open={addKeyDialog} onOpenChange={setAddKeyDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Cấp key cho thiết bị</DialogTitle>
+            <DialogDescription>
+              Chọn thời hạn key bản quyền cho thiết bị
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedDevice && (
+            <div className="space-y-4 py-2">
               <div className="grid grid-cols-3 gap-2">
-                <div className="text-sm font-medium">Key:</div>
-                <div className="col-span-2 font-mono break-all">{selectedDevice.key_code}</div>
+                <div className="text-sm font-medium">MAC:</div>
+                <div className="col-span-2 font-mono">{selectedDevice.mac}</div>
               </div>
               <div className="grid grid-cols-3 gap-2">
-                <div className="text-sm font-medium">Trạng thái:</div>
-                <div className="col-span-2">
-                  <span className={`inline-block px-2 py-1 rounded-full text-xs ${selectedDevice.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                    {selectedDevice.active ? 'Đã kích hoạt' : 'Chưa kích hoạt'}
-                  </span>
-                </div>
+                <div className="text-sm font-medium">Tên máy:</div>
+                <div className="col-span-2">{selectedDevice.hostname}</div>
               </div>
-              <div className="grid grid-cols-3 gap-2">
-                <div className="text-sm font-medium">Ngày kích hoạt:</div>
-                <div className="col-span-2">{formatDate(selectedDevice.activated_at)}</div>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                <div className="text-sm font-medium">Hết hạn:</div>
-                <div className="col-span-2">{formatDate(selectedDevice.expires_at)}</div>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                <div className="text-sm font-medium">Người tạo:</div>
-                <div className="col-span-2">{selectedDevice.added_by}</div>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                <div className="text-sm font-medium">Ngày tạo:</div>
-                <div className="col-span-2">{formatDate(selectedDevice.created_at)}</div>
+              
+              <div className="space-y-2">
+                <label htmlFor="duration" className="text-sm font-medium">
+                  Thời hạn:
+                </label>
+                <Select
+                  value={newKeyDuration}
+                  onValueChange={setNewKeyDuration}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Chọn thời hạn" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">1 ngày</SelectItem>
+                    <SelectItem value="3">3 ngày</SelectItem>
+                    <SelectItem value="30">1 tháng</SelectItem>
+                    <SelectItem value="180">6 tháng</SelectItem>
+                    <SelectItem value="730">2 năm</SelectItem>
+                    <SelectItem value="forever">Vĩnh viễn</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setOpenDialog(false)}>
-                Đóng
-              </Button>
-              <Button 
-                variant={selectedDevice.active ? "destructive" : "default"}
-                onClick={() => {
-                  toggleDeviceStatus(selectedDevice);
-                  setOpenDialog(false);
-                }}
-              >
-                {selectedDevice.active ? 'Hủy kích hoạt' : 'Kích hoạt'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        )}
+          )}
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddKeyDialog(false)}>
+              Hủy
+            </Button>
+            <Button 
+              variant="default" 
+              onClick={() => selectedDevice && handleAddKey(selectedDevice)}
+            >
+              Cấp key
+            </Button>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
     </div>
   );

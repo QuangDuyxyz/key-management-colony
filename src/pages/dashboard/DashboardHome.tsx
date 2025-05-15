@@ -1,8 +1,15 @@
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import { Key, Database, User, FileText } from 'lucide-react';
 import { query } from '@/lib/db';
 import { useAuth } from '@/contexts/AuthContext';
+import { 
+  ChartContainer, 
+  ChartTooltip, 
+  ChartTooltipContent 
+} from '@/components/ui/chart';
 
 interface DashboardStats {
   totalDevices: number;
@@ -54,6 +61,13 @@ const DashboardHome = () => {
       </div>
     );
   }
+
+  const chartData = [
+    { name: 'Đã kích hoạt', value: stats?.activeDevices || 0 },
+    { name: 'Chưa kích hoạt', value: (stats?.totalDevices || 0) - (stats?.activeDevices || 0) }
+  ];
+  
+  const CHART_COLORS = ['#22c55e', '#ef4444'];
   
   return (
     <div className="space-y-6 animate-fade-in">
@@ -94,7 +108,43 @@ const DashboardHome = () => {
         </Card>
       </div>
       
-      <div className="grid gap-6 md:grid-cols-1">
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Thống kê trạng thái thiết bị</CardTitle>
+          </CardHeader>
+          <CardContent className="h-80">
+            <ChartContainer
+              config={{
+                active: { color: "#22c55e" },
+                inactive: { color: "#ef4444" }
+              }}
+            >
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={chartData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    outerRadius={100}
+                    fill="#8884d8"
+                    dataKey="value"
+                    nameKey="name"
+                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  >
+                    {chartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Legend />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                </PieChart>
+              </ResponsiveContainer>
+            </ChartContainer>
+          </CardContent>
+        </Card>
+        
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
