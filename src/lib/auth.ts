@@ -1,5 +1,5 @@
 
-import { query } from './db';
+import { query } from './mockDb';
 import crypto from 'crypto';
 
 export interface User {

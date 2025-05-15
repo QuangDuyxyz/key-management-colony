@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,6 +31,8 @@ const Login = () => {
         navigate('/dashboard');
       } else {
         setError('Tên đăng nhập hoặc mật khẩu không chính xác');
+        // Tài khoản mẫu để dễ đăng nhập
+        toast.info('Tài khoản mẫu: admin/password hoặc user/password');
       }
     } catch (error) {
       console.error('Login failed', error);
