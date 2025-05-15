@@ -13,6 +13,7 @@ import DevicesPage from "@/pages/dashboard/DevicesPage";
 import KeysPage from "@/pages/dashboard/KeysPage";
 import LogsPage from "@/pages/dashboard/LogsPage";
 import UsersPage from "@/pages/dashboard/UsersPage";
+import UnauthorizedPage from "@/pages/UnauthorizedPage";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -25,26 +26,39 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
-            {/* Redirect root to dashboard */}
+            {/* Chuyển hướng trang gốc đến dashboard */}
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             
-            {/* Public routes */}
+            {/* Trang công khai */}
             <Route path="/login" element={<Login />} />
+            <Route path="/unauthorized" element={<UnauthorizedPage />} />
             
-            {/* Protected dashboard routes */}
+            {/* Các tuyến đường bảo vệ */}
             <Route path="/dashboard" element={
               <ProtectedRoute>
                 <DashboardLayout />
               </ProtectedRoute>
             }>
               <Route index element={<DashboardHome />} />
-              <Route path="keys" element={<KeysPage />} />
-              <Route path="devices" element={<DevicesPage />} />
+              <Route path="keys" element={
+                <ProtectedRoute allowedRoles={['admin', 'staff']}>
+                  <KeysPage />
+                </ProtectedRoute>
+              } />
+              <Route path="devices" element={
+                <ProtectedRoute allowedRoles={['admin', 'staff']}>
+                  <DevicesPage />
+                </ProtectedRoute>
+              } />
               <Route path="logs" element={<LogsPage />} />
-              <Route path="users" element={<UsersPage />} />
+              <Route path="users" element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <UsersPage />
+                </ProtectedRoute>
+              } />
             </Route>
             
-            {/* 404 route */}
+            {/* Trang 404 */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

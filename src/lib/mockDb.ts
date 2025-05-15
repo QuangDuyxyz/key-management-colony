@@ -7,14 +7,23 @@ const users = [
   {
     id: 1,
     username: 'admin',
+    password_hash: '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8', // password
     role: 'admin',
     created_at: '2023-01-01T00:00:00Z'
   },
   {
     id: 2,
     username: 'user',
+    password_hash: '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8', // password
     role: 'user',
     created_at: '2023-02-01T00:00:00Z'
+  },
+  {
+    id: 3,
+    username: 'staff',
+    password_hash: '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8', // password
+    role: 'staff',
+    created_at: '2023-03-01T00:00:00Z'
   }
 ];
 
@@ -113,12 +122,21 @@ async function query<T>(sql: string, params?: any[]): Promise<T> {
   // Simple mock implementation based on the query
   if (sql.includes('SELECT * FROM users')) {
     return users as unknown as T;
-  } else if (sql.includes('SELECT id, username, role, created_at FROM users')) {
-    return users as unknown as T;
+  } else if (sql.includes('SELECT id, username, password_hash, role, created_at FROM users WHERE username = ?') && params) {
+    const username = params[0];
+    const foundUsers = users.filter(u => u.username === username);
+    return foundUsers as unknown as T;
+  } else if (sql.includes('SELECT id, username, role, created_at FROM users WHERE username = ?') && params) {
+    const username = params[0];
+    const foundUsers = users.filter(u => u.username === username)
+      .map(({ password_hash, ...rest }) => rest); // Remove password_hash
+    return foundUsers as unknown as T;
   } else if (sql.includes('SELECT COUNT(*) as count FROM users')) {
     return [{ count: users.length }] as unknown as T;
   } else if (sql.includes('SELECT * FROM devices')) {
     return devices as unknown as T;
+  } else if (sql.includes('SELECT * FROM devices WHERE active = 1')) {
+    return devices.filter(d => d.active === 1) as unknown as T;
   } else if (sql.includes('SELECT COUNT(*) as count FROM devices')) {
     return [{ count: devices.length }] as unknown as T;
   } else if (sql.includes('SELECT COUNT(*) as count FROM devices WHERE active = 1')) {
@@ -127,10 +145,8 @@ async function query<T>(sql: string, params?: any[]): Promise<T> {
     return logs as unknown as T;
   } else if (sql.includes('username = ?') && params && params[0]) {
     // Mock user login
-    const hashedPassword = params && params.length > 1 ? params[1] : '';
     const foundUser = users.find(u => u.username === params[0]);
     
-    // For demo purposes, any password works
     if (foundUser) {
       return [foundUser] as unknown as T;
     } else {

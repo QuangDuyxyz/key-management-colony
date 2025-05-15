@@ -18,7 +18,7 @@ const DashboardLayout = () => {
       return;
     }
     
-    // Test database connection
+    // Kiểm tra kết nối database
     const checkDbConnection = async () => {
       const result = await testConnection();
       setDbStatus(result);
@@ -42,7 +42,11 @@ const DashboardLayout = () => {
           <header className="h-16 border-b bg-white flex items-center px-6 sticky top-0 z-10">
             <SidebarTrigger />
             <div className="ml-auto flex items-center gap-4">
-              <div className="text-sm font-medium">
+              <div className="text-sm font-medium flex items-center">
+                <span className="bg-primary/10 text-primary px-2 py-1 rounded mr-2">
+                  {user.role === 'admin' ? 'Quản trị viên' : 
+                   user.role === 'staff' ? 'Nhân viên' : 'Người dùng'}
+                </span>
                 Xin chào, {user.username}
               </div>
             </div>
@@ -84,22 +88,29 @@ const AppSidebar = ({ user, onLogout, dbStatus }: AppSidebarProps) => {
                   </a>
                 </SidebarMenuButton>
               </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <a href="/dashboard/keys">
-                    <Database className="sidebar-icon" />
-                    <span>Quản lý key</span>
-                  </a>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <a href="/dashboard/devices">
-                    <Settings className="sidebar-icon" />
-                    <span>Quản lý thiết bị</span>
-                  </a>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              
+              {/* Hiển thị menu theo quyền */}
+              {(user.role === 'admin' || user.role === 'staff') && (
+                <>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild>
+                      <a href="/dashboard/keys">
+                        <Database className="sidebar-icon" />
+                        <span>Quản lý key</span>
+                      </a>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild>
+                      <a href="/dashboard/devices">
+                        <Settings className="sidebar-icon" />
+                        <span>Quản lý thiết bị</span>
+                      </a>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </>
+              )}
+              
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
                   <a href="/dashboard/logs">
@@ -108,6 +119,7 @@ const AppSidebar = ({ user, onLogout, dbStatus }: AppSidebarProps) => {
                   </a>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+              
               {user.role === 'admin' && (
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild>

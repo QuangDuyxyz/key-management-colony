@@ -7,6 +7,8 @@ interface AuthContextType {
   loading: boolean;
   login: (user: User) => void;
   logout: () => void;
+  darkMode: boolean;
+  toggleDarkMode: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -14,9 +16,15 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [darkMode, setDarkMode] = useState(() => {
+    // Kiểm tra chế độ tối từ localStorage hoặc preferences
+    const savedMode = localStorage.getItem('darkMode');
+    return savedMode ? JSON.parse(savedMode) : 
+           window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
 
   useEffect(() => {
-    // Check if user is stored in localStorage
+    // Kiểm tra nếu người dùng đã lưu trong localStorage
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
       try {
@@ -27,7 +35,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
     setLoading(false);
-  }, []);
+    
+    // Áp dụng chế độ tối
+    document.documentElement.classList.toggle('dark', darkMode);
+    localStorage.setItem('darkMode', JSON.stringify(darkMode));
+  }, [darkMode]);
 
   const login = (userData: User) => {
     setUser(userData);
@@ -38,9 +50,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     localStorage.removeItem('user');
   };
+  
+  const toggleDarkMode = () => {
+    setDarkMode(prev => !prev);
+  };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, darkMode, toggleDarkMode }}>
       {children}
     </AuthContext.Provider>
   );
