@@ -193,6 +193,7 @@ const UsersPage = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="user">Người dùng</SelectItem>
+                    <SelectItem value="staff">Nhân viên</SelectItem>
                     <SelectItem value="admin">Quản trị viên</SelectItem>
                   </SelectContent>
                 </Select>
@@ -246,8 +247,8 @@ const UsersPage = () => {
                     <TableCell>{user.id}</TableCell>
                     <TableCell>{user.username}</TableCell>
                     <TableCell>
-                      <span className={`inline-block px-2 py-1 rounded-full text-xs ${user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'}`}>
-                        {user.role === 'admin' ? 'Quản trị viên' : 'Người dùng'}
+                      <span className={`inline-block px-2 py-1 rounded-full text-xs ${user.role === 'admin' ? 'bg-purple-100 text-purple-800' : user.role === 'staff' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>
+                        {user.role === 'admin' ? 'Quản trị viên' : user.role === 'staff' ? 'Nhân viên' : 'Người dùng'}
                       </span>
                     </TableCell>
                     <TableCell>{formatDate(user.created_at)}</TableCell>
